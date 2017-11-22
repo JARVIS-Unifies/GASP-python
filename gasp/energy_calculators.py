@@ -33,11 +33,62 @@ import shutil
 import subprocess
 import os,pickle,json
 from jarvis.ml.get_descpy3 import get_comp_descp
+from jarvis.vasp.joptb88vdw import run_job,Auto_Kpoints
+from pymatgen.io.vasp.inputs import Poscar
+from pymatgen.core.structure import Structure
+from pymatgen.io.vasp.inputs import Incar
 
+class JvaspEnergyCalculator(object):
+
+    def __init__(self, geometry):
+        self.name = 'jvasp'
+    def do_energy_calculation(self, organism, dictionary, key,
+                              composition_space):
+         incar_dict = dict(
+         PREC = 'Accurate',
+         ENCUT = 600,
+         ISMEAR = 0,
+         EDIFF = '1E-7',
+         ISIF = 3,
+         GGA = 'BO',
+         PARAM1 = 0.1833333333,
+         PARAM2 = 0.2200000000,
+         LUSE_VDW = '.TRUE.',
+         AGGAC = 0.0000,
+
+
+         NEDOS = 5000,
+         IBRION = 2,
+         NSW = 500,   #change 400
+         NELM = 500,  #change 400
+         LORBIT = 11,
+         LVTOT = '.TRUE.',
+         LVHAR = '.TRUE.',
+         ISPIN = 2,
+         NPAR = 4,
+         LCHARG = '.FALSE.',
+         LWAVE = '.FALSE.' )
+
+
+         incar = Incar.from_dict(incar_dict)
+         structure=organism.cell
+         
+         pos=Poscar(structure)
+         pos.commet='bulk@GASP'
+         kpoints=Auto_Kpoints(mat=pos,length=10)
+         energy,contcar=run_job(mat=pos,incar=incar,kpoints=kpoints,jobname=str('MAIN-RELAX-')+str(organism.id))
+         final_strt=Structure.from_file(contcar)
+         organism.cell = final_strt
+         organism.total_energy = energy
+         organism.epa = energy/organism.cell.num_sites
+         print('Setting energy of organism {} to {} '
+              'eV/atom '.format(organism.id, organism.epa))
+         dictionary[key] = organism
+         
 class JmlEnergyCalculator(object):
     from monty.json import MontyEncoder, MontyDecoder
     """
-    Calculates the energy of an organism using VASP.
+    Calculates the energy of an organism using JARVIS-ML.
     """
 
     def __init__(self,chempot_json,form_pickle,  geometry):
@@ -94,7 +145,6 @@ class JmlEnergyCalculator(object):
           u.encoding = 'latin1'
           object_file = u.load()
         pred=object_file.predict(X)[0]
-        #print ('HEYYYYYYYYYY',pred[0])
         pred=tot_en(strt=organism.cell,fenp=pred)
         f_name = str(os.getcwd()) + '/temp/' + str(organism.id)+str('/energy')
         f=open(f_name,'w')

@@ -443,6 +443,8 @@ def make_energy_calculator(parameters, geometry, composition_space):
     # for JARVIS-ML
     elif 'jml' in parameters['EnergyCode']:
         return make_jml_energy_calculator(parameters, composition_space,geometry)
+    elif 'jvasp' in parameters['EnergyCode']:
+        return make_jvasp_energy_calculator(parameters, composition_space,geometry)
     else:
         print('The given energy code name is invalid.')
         print('Quitting...')
@@ -556,6 +558,9 @@ def make_jml_energy_calculator(parameters, composition_space,geometry):
    chempot_json= parameters['EnergyCode']['jml']['chempot_json']
    form_pickle= parameters['EnergyCode']['jml']['form_pickle']
    return energy_calculators.JmlEnergyCalculator(chempot_json,form_pickle,geometry)
+
+def make_jvasp_energy_calculator(parameters, composition_space,geometry):
+   return energy_calculators.JvaspEnergyCalculator(geometry)
 
 def make_vasp_energy_calculator(parameters, composition_space, geometry):
     """
