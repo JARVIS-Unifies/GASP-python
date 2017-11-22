@@ -367,10 +367,11 @@ def make_organism_creators(parameters, composition_space, constraints):
                     # check if we got them all
                     for endpoint in composition_space.endpoints:
                         if endpoint not in provided_endpoints:
+                                   
                             print('Error: valid structure files not provided '
                                   'to the initial population for all '
                                   'endpoints of the composition space.')
-                            print('Quitting...')
+                            print('Quitting...',endpoint)
                             quit()
                 initial_organism_creators.append(files_organism_creator)
 
@@ -439,6 +440,9 @@ def make_energy_calculator(parameters, geometry, composition_space):
     elif 'vasp' in parameters['EnergyCode']:
         return make_vasp_energy_calculator(parameters, composition_space,
                                            geometry)
+    # for JARVIS-ML
+    elif 'jml' in parameters['EnergyCode']:
+        return make_jml_energy_calculator(parameters, composition_space,geometry)
     else:
         print('The given energy code name is invalid.')
         print('Quitting...')
@@ -548,6 +552,10 @@ def make_lammps_energy_calculator(parameters, geometry):
         return energy_calculators.LammpsEnergyCalculator(
                 input_script_path, geometry)
 
+def make_jml_energy_calculator(parameters, composition_space,geometry):
+   chempot_json= parameters['EnergyCode']['jml']['chempot_json']
+   form_pickle= parameters['EnergyCode']['jml']['form_pickle']
+   return energy_calculators.JmlEnergyCalculator(chempot_json,form_pickle,geometry)
 
 def make_vasp_energy_calculator(parameters, composition_space, geometry):
     """

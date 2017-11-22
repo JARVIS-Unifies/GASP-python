@@ -18,6 +18,8 @@ do_energy_calculation() method.
 
 3. GulpEnergyCalculator: for using GULP to compute energies
 
+4. JARVIS-MLEnergyCalculator: for using GULP to compute energies
+
 """
 
 from gasp.general import Cell
@@ -26,10 +28,87 @@ from pymatgen.core.lattice import Lattice
 from pymatgen.core.periodic_table import Element
 from pymatgen.io.lammps.data import LammpsData
 import pymatgen.command_line.gulp_caller as gulp_caller
-
+from monty.json import MontyEncoder, MontyDecoder
 import shutil
 import subprocess
-import os
+import os,pickle,json
+from jarvis.ml.get_descpy3 import get_comp_descp
+
+class JmlEnergyCalculator(object):
+    from monty.json import MontyEncoder, MontyDecoder
+    """
+    Calculates the energy of an organism using VASP.
+    """
+
+    def __init__(self,chempot_json,form_pickle,  geometry):
+        self.name = 'jml'
+        self.chempot_json = chempot_json
+        self.form_pickle = form_pickle
+    def do_energy_calculation(self, organism, dictionary, key,
+                              composition_space):
+        def isfloat(value):
+         try:
+           float(value)
+           return True
+         except ValueError:
+            return False
+
+
+        def uni_en(el='Na'):
+          en='na'
+          fl=str(self.chempot_json)
+          print ('fl',fl)
+          f=open(fl,'r')
+          u=json.load(f,cls=MontyDecoder )
+          f.close()
+          for i,j in u.items():
+           if str(i)==str(el):
+            en=j['en']
+
+          return en
+
+        def tot_en(strt='',fenp=''):
+          tot_en='na'
+          els=strt.composition.elements
+          dd=strt.composition.get_el_amt_dict()
+          ref=0.0
+          for k,v in dd.items():
+                 e1=uni_en(k)
+                 if e1=='na':
+                      ref='na'
+                      break
+                 else:
+                      ref=ref+float(v)*float(e1)
+          if isfloat(ref):
+              tot_en=float(fenp)*(strt.composition.num_atoms)+float(ref)
+          return tot_en
+
+
+        job_dir_path = str(os.getcwd()) + '/temp/' + str(organism.id)
+        os.mkdir(job_dir_path)
+        organism.cell = organism.cell#relaxed_cell
+        X= get_comp_descp(organism.cell)
+        with open(self.form_pickle, 'rb') as f:
+          print ('self.form_pickle',self.form_pickle)
+          u = pickle._Unpickler(f)
+          u.encoding = 'latin1'
+          object_file = u.load()
+        pred=object_file.predict(X)[0]
+        #print ('HEYYYYYYYYYY',pred[0])
+        pred=tot_en(strt=organism.cell,fenp=pred)
+        f_name = str(os.getcwd()) + '/temp/' + str(organism.id)+str('/energy')
+        f=open(f_name,'w')
+        line=str(pred)+str('\n')
+        f.write(line)
+        f.close()
+
+
+
+        organism.total_energy = float(pred)
+        organism.epa = organism.total_energy/organism.cell.num_sites
+        print('Setting JML energy of organism {} to {} '
+              'eV/atom '.format(organism.id, organism.epa))
+        dictionary[key] = organism
 
 
 class VaspEnergyCalculator(object):
